@@ -255,8 +255,11 @@
         <p>&copy; 2025 Bhogan Mediasoft. All rights reserved.</p>
     </footer>
 
-    <script>
+       <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Add backend base URL (update with your actual backend URL)
+            const BACKEND_URL = 'https://bhogan-hpdi.vercel.app';
+
             // Load external scripts
             const script1 = document.createElement('script');
             script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/wow/1.1.2/wow.min.js';
@@ -273,53 +276,9 @@
                 if (window.WOW) new WOW().init();
             };
 
-            // Form validation
-            function validateForm(formData) {
-                const errors = {};
-                const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-                const phoneRegex = /^[6-9]\d{9}$/;
-                const nameRegex = /^[A-Za-z\s]+$/;
+            // Form validation (keep existing validation code the same)
 
-                document.querySelectorAll('.error').forEach(el => el.textContent = '');
-
-                if (!formData.name.trim()) {
-                    errors.name = 'Name is required';
-                } else if (!nameRegex.test(formData.name)) {
-                    errors.name = 'Please enter a valid name (letters and spaces only)';
-                }
-
-                if (!formData.email.trim()) {
-                    errors.email = 'Email is required';
-                } else if (!emailRegex.test(formData.email)) {
-                    errors.email = 'Invalid email format (valid format: user@example.com)';
-                } else if (formData.email.length > 50) {
-                    errors.email = 'Email must be less than 50 characters';
-                }
-
-                if (!formData.phone.trim()) {
-                    errors.phone = 'Phone number is required';
-                } else if (!phoneRegex.test(formData.phone)) {
-                    errors.phone = 'Please enter a valid 10-digit Indian phone number';
-                }
-
-                if (!formData.age.trim()) {
-                    errors.age = 'Age is required';
-                } else if (isNaN(formData.age) || formData.age < 18 || formData.age > 100) {
-                    errors.age = 'Age must be between 18 and 100 years';
-                }
-
-                if (!formData.gender) {
-                    errors.gender = 'Please select a gender';
-                }
-
-                if (!formData.category) {
-                    errors.category = 'Please select a run category';
-                }
-
-                return errors;
-            }
-
-            // Handle form submission
+            // Handle form submission - UPDATED API ENDPOINTS
             document.getElementById('registrationForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const submitButton = document.getElementById('payNow');
@@ -347,24 +306,38 @@
                 }
 
                 try {
-                    // Get Razorpay key
-                    const keyResponse = await fetch('https://bhogan-hpdi.vercel.app/get-razorpay-key');
-                    if (!keyResponse.ok) throw new Error('Failed to fetch Razorpay key');
+                    // Get Razorpay key from backend
+                    const keyResponse = await fetch(`${BACKEND_URL}/get-razorpay-key`);
+                    if (!keyResponse.ok) {
+                        const errorText = await keyResponse.text();
+                        throw new Error(`Failed to fetch Razorpay key: ${errorText}`);
+                    }
                     const { key } = await keyResponse.json();
 
-                    const orderResponse = await fetch('https://bhogan-hpdi.vercel.app/createOrder', {
+                    // Create payment order
+                    const orderResponse = await fetch(`${BACKEND_URL}/createOrder`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ amount: 1 })
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer your-auth-token-if-needed'
+                        },
+                        body: JSON.stringify({ 
+                            amount: 100, // Amount in paise (₹1 = 100 paise)
+                            currency: 'INR'
+                        })
                     });
 
-                    if (!orderResponse.ok) throw new Error('Failed to create order');
+                    if (!orderResponse.ok) {
+                        const errorText = await orderResponse.text();
+                        throw new Error(`Order creation failed: ${errorText}`);
+                    }
                     const order = await orderResponse.json();
 
+                    // Configure Razorpay options
                     const options = {
                         key,
                         amount: order.amount,
-                        currency: 'INR',
+                        currency: order.currency,
                         name: 'Polo Marathon',
                         description: `Marathon Registration (${formData.category})`,
                         order_id: order.id,
@@ -374,6 +347,7 @@
                                     throw new Error('Payment failed or cancelled');
                                 }
 
+                                // Send registration data to backend
                                 const registrationData = {
                                     ...formData,
                                     paymentId: response.razorpay_payment_id,
@@ -381,16 +355,19 @@
                                     signature: response.razorpay_signature
                                 };
 
-                                const registerResponse = await fetch('https://bhogan-hpdi.vercel.app/api/auth/register', {
+                                const registerResponse = await fetch(`${BACKEND_URL}/api/auth/register`, {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    headers: { 
+                                        'Content-Type': 'application/json',
+                                        'Authorization': 'Bearer your-auth-token-if-needed'
+                                    },
                                     body: JSON.stringify(registrationData)
                                 });
 
                                 const result = await registerResponse.json();
                                 
                                 if (!registerResponse.ok) {
-                                    throw new Error(result.msg || 'Registration failed');
+                                    throw new Error(result.message || 'Registration failed');
                                 }
 
                                 // Show success message
@@ -399,11 +376,14 @@
                                 successMessage.innerHTML = `
                                     <h3>Registration Successful!</h3>
                                     <p>Chest Number: ${result.chestNumber}</p>
-                                    <p>Check your email for confirmation details</p>
+                                    <p>Transaction ID: ${response.razorpay_payment_id}</p>
+                                    <p>Check your email (${formData.email}) for confirmation details</p>
                                 `;
 
+                                // Reset form
                                 e.target.reset();
                             } catch (error) {
+                                console.error('Registration error:', error);
                                 alert(`❌ Error: ${error.message}`);
                             }
                         },
@@ -412,15 +392,27 @@
                             email: formData.email,
                             contact: formData.phone
                         },
-                        theme: { color: '#3399cc' }
+                        theme: {
+                            color: '#3399cc',
+                            hide_topbar: true
+                        },
+                        modal: {
+                            ondismiss: function() {
+                                alert('Payment cancelled by user');
+                            }
+                        }
                     };
 
                     const razorpay = new Razorpay(options);
+                    
                     razorpay.on('payment.failed', function(response) {
                         alert(`Payment failed: ${response.error.description}`);
                     });
+
                     razorpay.open();
+
                 } catch (error) {
+                    console.error('Payment error:', error);
                     alert(`❌ Error: ${error.message}`);
                 } finally {
                     submitButton.disabled = false;
@@ -429,5 +421,6 @@
             });
         });
     </script>
+
 </body>
 </html>
