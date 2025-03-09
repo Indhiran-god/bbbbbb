@@ -277,6 +277,56 @@
             };
 
             // Form validation (keep existing validation code the same)
+            // Add validation function
+    function validateForm(formData) {
+        const errors = {};
+
+        // Clear previous errors
+        document.querySelectorAll('.error').forEach(el => el.textContent = '');
+
+        // Name validation
+        if (!formData.name.trim()) {
+            errors.name = 'Name is required';
+        } else if (formData.name.trim().length < 3) {
+            errors.name = 'Name must be at least 3 characters';
+        }
+
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!formData.email) {
+            errors.email = 'Email is required';
+        } else if (!emailRegex.test(formData.email)) {
+            errors.email = 'Invalid email format';
+        }
+
+        // Phone validation
+        const phoneRegex = /^[6-9]\d{9}$/;
+        if (!formData.phone) {
+            errors.phone = 'Phone number is required';
+        } else if (!phoneRegex.test(formData.phone)) {
+            errors.phone = 'Invalid Indian phone number';
+        }
+
+        // Age validation
+        if (!formData.age) {
+            errors.age = 'Age is required';
+        } else if (isNaN(formData.age) || formData.age < 18 || formData.age > 100) {
+            errors.age = 'Age must be between 18 and 100';
+        }
+
+        // Gender validation
+        if (!formData.gender) {
+            errors.gender = 'Gender selection is required';
+        }
+
+        // Category validation
+        if (!formData.category) {
+            errors.category = 'Run category is required';
+        }
+
+        return errors;
+    }
+
 
             // Handle form submission - UPDATED API ENDPOINTS
             document.getElementById('registrationForm').addEventListener('submit', async function(e) {
